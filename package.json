@@ -1,0 +1,33 @@
+{
+  "name": "real-time-text-editor",
+  "version": "1.0.0",
+  "description": "A real-time collaborative text editor built with Node.js, React, and Rust.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "nodemon server.js",
+    "build": "npm run build:rust && npm run build:react",
+    "build:rust": "cargo build --release",
+    "build:react": "cd client && npm run build",
+    "lint": "eslint .",
+    "test": "jest"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Megan444x/real-time-text-editor.git"
+  },
+  "author": "Megan444x",
+  "dependencies": {
+    "express": "^4.17.1",
+    "socket.io": "^4.0.0",
+    "mongoose": "^5.11.15",
+    "jsonwebtoken": "^8.5.1",
+    "bcryptjs": "^2.4.3",
+    "socket.io-client": "^4.0.0"
+  },
+  "devDependencies": {
+    "nodemon": "^2.0.15",
+    "eslint": "^7.32.0",
+    "jest": "^27.0.6"
+  }
+}
