@@ -6,14 +6,14 @@ require('dotenv').config();
 
 const app = express();
 const server = http.createServer(app);
-
-const webSocket = socketIo(server);
+const io = socketIo(server);
 
 app.use(bodyParser.json());
 app.use(express.static('public'));
 
 app.post('/api/authenticate', (req, res) => {
     const { username, password } = req.body;
+    
     const isAuthenticated = username === process.env.ADMIN_USERNAME && password === process.env.ADMIN_PASSWORD;
     
     if (isAuthenticated) {
@@ -35,7 +35,7 @@ app.get('/api/documentHistory/:id', (req, res) => {
     res.json({ success: true, history: [] });
 });
 
-webSocket.on('connection', (socket) => {
+io.on('connection', (socket) => {
     console.log('A user connected');
     
     socket.on('documentChange', (documentContent) => {
