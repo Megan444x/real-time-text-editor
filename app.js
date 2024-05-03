@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { io } from 'socket.io-client';
-import { Quill } from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
+import ReactQuill from 'react-quill';
 
 const SOCKET_IO_URL = process.env.REACT_APP_SOCKET_IO_URL;
 
@@ -10,20 +10,22 @@ const App = () => {
   const [document, setDocument] = useState('');
 
   useEffect(() => {
-    const socket = io(SOCKET_IO_URL);
-    setSocket(socket);
+    const newSocket = io(SOCKET_IO_URL);
+    setSocket(newSocket);
 
-    socket.on('documentUpdate', (updatedDocument) => {
+    newSocket.on('documentUpdate', (updatedDocument) => {
+      console.log('Document update received:', updatedDocument);
       setDocument(updatedDocument);
     });
 
     return () => {
-      socket.disconnect();
+      newSocket.disconnect();
     };
   }, []);
 
   const handleTextChange = (content, delta, source, editor) => {
     if (source === 'user') {
+      console.log('Sending update to socket:', editor.getContents());
       socket.emit('updateDocument', editor.getContents());
     }
   };
@@ -31,7 +33,7 @@ const App = () => {
   return (
     <div className="app">
       <h2>Collaborative Text Editor</h2>
-      <Quill theme="snow" value={document} onChange={handleTextChange} />
+      <ReactQuill theme="snow" value={document} onChange={handleTextChange} />
     </div>
   );
 };
