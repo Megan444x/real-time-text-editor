@@ -5,27 +5,27 @@ const bodyParser = require('body-parser');
 require('dotenv').config();
 
 const app = express();
-const port = process.env.PORT || 3000;
-const JWT_SECRET = process.env.JWT_SECRET;
+const serverPort = process.env.PORT || 3000; 
+const jwtSecretKey = process.env.JWT_SECRET; 
 
 app.use(bodyParser.json());
 
-let users = [];
+let registeredUsers = []; 
 
 app.post('/register', async (req, res) => {
   try {
     const { username, password } = req.body;
-    const hashedPassword = await bcrypt.hash(password, 8);
+    const hashedUserPassword = await bcrypt.hash(password, 8); 
 
-    const userExists = users.find(user => user.username === username);
+    const existingUser = registeredUsers.find(user => user.username === username); 
 
-    if (userExists) {
+    if (existingUser) {
       return res.status(400).send('User already exists');
     }
 
-    users.push({
+    registeredUsers.push({
       username,
-      password: hashedPassword
+      password: hashedUserPassword, 
     });
 
     res.status(201).send('User registered successfully');
@@ -38,25 +38,25 @@ app.post('/login', async (req, res) => {
   try {
     const { username, password } = req.body;
 
-    const user = users.find(user => user.username === username);
-    if (!user) {
+    const userToLogin = registeredUsers.find(user => user.username === username); 
+    if (!userToLogin) {
       return res.status(400).send('User does not exist');
     }
 
-    const isPasswordValid = await bcrypt.compare(password, user.password);
-    if (!isPasswordValid) {
+    const isValidPassword = await bcrypt.compare(password, userToLogin.password); 
+    if (!isValidPassword) {
       return res.status(401).send('Invalid password');
     }
 
-    const token = jwt.sign({ username: user.username }, JWT_SECRET, { expiresIn: '2h' });
+    const authToken = jwt.sign({ username: userToLogin.username }, jwtSecretKey, { expiresIn: '2h' }); 
 
-    res.status(200).send({ token });
+    res.status(200).send({ authToken }); 
   } catch (error) {
     res.status(500).send(error.message);
   }
 });
 
-const verifyToken = (req, res, next) => {
+const authenticateToken = (req, res, next) => { 
   const token = req.header('Authorization')?.split(' ')[1];
 
   if (!token) {
@@ -64,18 +64,18 @@ const verifyToken = (req, res, next) => {
   }
 
   try {
-    const decoded = jwt.verify(token, JWT_SECRET);
-    req.user = decoded;
+    const decodedUser = jwt.verify(token, jwtSecretKey); 
+    req.user = decodedUser;
   } catch (err) {
     return res.status(401).send('Invalid Token');
   }
   return next();
 };
 
-app.get('/profile', verifyToken, (req, res) => {
+app.get('/profile', authenticateToken, (req, res) => {
   res.status(200).send(`Welcome ${req.user.username}, you are authenticated.`);
 });
 
-app.listen(port, () => {
-  console.log(`Server running at http://localhost:${port}`);
+app.listen(serverPort, () => {
+  console.log(`Server running at http://localhost:${serverPort}`);
 });
