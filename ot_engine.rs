@@ -12,6 +12,7 @@ enum Operation {
 #[wasm_bindgen]
 pub struct OtEngine {
     operations: VecDeque<Operation>,
+    history: Vec<VecDeque<Operation>>,
 }
 
 #[wasm_bindgen]
@@ -19,6 +20,7 @@ impl OtEngine {
     pub fn new() -> OtEngine {
         OtEngine {
             operations: VecDeque::new(),
+            history: Vec::new(),
         }
     }
 
@@ -31,6 +33,10 @@ impl OtEngine {
     }
 
     pub fn apply(&mut self, document: &mut String) {
+        if !self.operations.is_empty() {
+            self.history.push(self.operations.clone());
+        }
+        
         while let Some(op) = self.operations.pop_front() {
             match op {
                 Operation::Insert { pos, char } => {
@@ -45,6 +51,29 @@ impl OtEngine {
                 },
             }
         }
+    }
+    
+    pub fn undo(&mut self, document: &mut String) {
+        if let Some(ops) = self.history.pop() {
+            for op in ops.iter().rev() {
+                match op {
+                    Operation::Insert { pos, .. } => {
+                        if *pos < document.len() {
+                            document.remove(*pos);
+                        }
+                    },
+                    Operation::Delete { pos, char } => {
+                        if *pos <= document.len() {
+                            document.insert(*pos, *char);
+                        }
+                    },
+                }
+            }
+        }
+    }
+
+    pub fn clear_history(&mut self) {
+        self.history.clear();
     }
 
     pub fn reset(&mut self) {
