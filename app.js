@@ -30,10 +30,23 @@ const App = () => {
     }
   };
 
+  const saveDocument = () => {
+    const element = document.createElement("a");
+    const file = new Blob([document], {type: 'text/plain'});
+    element.href = URL.createObjectURL(file);
+    element.download = "SavedDocument.txt";
+    document.body.appendChild(element); // Required for this to work in FireFox
+    element.click();
+    document.body.removeChild(element);
+  }
+
   return (
     <div className="app">
       <h2>Collaborative Text Editor</h2>
       <ReactQuill theme="snow" value={document} onChange={handleTextChange} />
+      <button onClick={saveDocument} style={{marginTop: '20px'}}>
+        Save Document
+      </button>
     </div>
   );
 };
