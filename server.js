@@ -8,19 +8,27 @@ const app = express();
 const server = http.createServer(app);
 const io = socketIo(server);
 
+const authCache = {};
+
 app.use(bodyParser.json());
 app.use(express.static('public'));
 
 app.post('/api/authenticate', (req, res) => {
     const { username, password } = req.body;
     
+    const cacheKey = `${username}-${password}`;
+    
+    if (authCache[cacheKey] !== undefined) {
+        return res.json(authCache[cacheKey]);
+    }
+    
     const isAuthenticated = username === process.env.ADMIN_USERNAME && password === process.env.ADMIN_PASSWORD;
     
-    if (isAuthenticated) {
-        res.json({ success: true, token: "fake-jwt-token" });
-    } else {
-        res.status(401).json({ success: false, message: "Authentication failed" });
-    }
+    const response = isAuthenticated ? { success: true, token: "fake-jwt-token" } : { success: false, message: "Authentication failed" };
+    
+    authCache[cacheKey] = response;
+    
+    res.json(response);
 });
 
 app.post('/api/createDocument', (req, res) => {
