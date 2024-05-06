@@ -36,9 +36,9 @@ const Document = mongoose.model('Document', DocumentSchema);
 exports.createDocument = async (req, res) => {
     try {
         const { title, content } = req.body;
-        const document = new Document({ title, content });
-        await document.save();
-        res.status(201).send(document);
+        const newDocument = new Document({ title, content });
+        await newDocument.save();
+        res.status(201).send(newDocument);
     } catch (error) {
         res.status(400).send(error);
     }
@@ -63,11 +63,14 @@ exports.updateDocument = async (req, res) => {
             return res.status(404).send();
         }
 
-        document.title = req.body.title || document.title;
-        document.content = req.body.content || document.content;
-        document.version += 1;
-        document.updatedAt = Date.now();
+        const updatedData = {
+          title: req.body.title || document.title,
+          content: req.body.content || document.content,
+          version: document.version + 1,
+          updatedAt: Date.now()
+        };
 
+        document.set(updatedData);
         await document.save();
         res.send(document);
     } catch (error) {
@@ -77,8 +80,8 @@ exports.updateDocument = async (req, res) => {
 
 exports.deleteDocument = async (req, res) => {
     try {
-        const document = await Document.findByIdAndDelete(req.params.id);
-        if (!document) {
+        const deletedDocument = await Document.findByIdAndDelete(req.params.id);
+        if (!deletedDocument) {
             return res.status(404).send();
         }
         res.status(204).send();
