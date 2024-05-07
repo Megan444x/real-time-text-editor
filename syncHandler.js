@@ -17,12 +17,22 @@ let doc = {
 };
 
 function applyOperation(doc, operation) {
-  return Operation.fromJSON(operation).apply(doc.content);
+  try {
+    return Operation.fromJSON(operation).apply(doc.content);
+  } catch (error) {
+    console.error('Error applying operation:', error);
+    throw new Error('Failed to apply operation.');
+  }
 }
 
 function invertOperation(doc, operation) {
   // Assumes Operation has an invert method that generates the inverse of a given operation
-  return Operation.fromJSON(operation).invert(doc.content);
+  try {
+    return Operation.fromJSON(operation).invert(doc.content);
+  } catch (error) {
+    console.error('Error inverting operation:', error);
+    throw new Error('Failed to invert operation.');
+  }
 }
 
 io.on('connection', (socket) => {
@@ -30,7 +40,7 @@ io.on('connection', (socket) => {
 
   socket.on('operation', (operation, revision) => {
     if (revision < doc.revision) {
-      socket.emit('doc', doc);
+      socket.emit('resync', doc); // Suggest resyncing instead of sending doc directly; might need to implement based on the client's handling
     } else {
       try {
         const operationInverted = invertOperation(doc, operation);
@@ -41,7 +51,8 @@ io.on('connection', (socket) => {
         doc.redoStack = []; // Clear redo stack upon new operation
         io.emit('doc', doc);
       } catch (error) {
-        socket.emit('error', 'Error applying operation');
+        console.error(error);
+        socket.emit('error', 'Error applying operation: ' + error.message);
       }
     }
   });
@@ -54,7 +65,8 @@ io.on('connection', (socket) => {
         doc.redoStack.push(operationToUndo); // Add to redo stack after undo
         io.emit('doc', doc);
       } catch (error) {
-        socket.emit('error', 'Error undoing operation');
+        console.error(error);
+        socket.emit('error', 'Error undoing operation: ' + error.message);
       }
     }
   });
@@ -68,12 +80,15 @@ io.on('connection', (socket) => {
         doc.undoStack.push(operationInverted); // Re-invert the operation for undo stack
         io.emit('doc', doc);
       } catch (error) {
-        socket.emit('error', 'Error redoing operation');
+        console.error(error);
+        socket.emit('error', 'Error redoing operation: ' + error.message);
       }
     }
   });
 
-  socket.on('disconnect', () => {});
+  socket.on('disconnect', () => {
+    // Optional: add logic to handle disconnection if needed, such as cleaning up user sessions
+  });
 });
 
 const PORT = process.env.PORT || 3000;
