@@ -12,24 +12,30 @@ app.use(bodyParser.json());
 
 let registeredUsers = [];
 
+function checkRequiredFields(req, res, fields, message) {
+  for (const field of fields) {
+    if (!req.body[field]) {
+      res.status(400).send(message);
+      return false;
+    }
+  }
+  return true;
+}
+
 app.post('/register', async (req, res) => {
   try {
-    const { username, password } = req.body;
-    if (!username || !password) {
-      return res.status(400).send('Username and password are required');
+    if(!checkRequiredFields(req, res, ['username', 'password'], 'Username and password are required')) {
+      return;
     }
+    
+    const { username, password } = req.body;
     const hashedUserPassword = await bcrypt.hash(password, 8);
 
-    const existingUser = registeredUsers.find(user => user.username === username);
-
-    if (existingUser) {
+    if (registeredUsers.some(user => user.username === username)) {
       return res.status(400).send('User already exists');
     }
 
-    registeredUsers.push({
-      username,
-      password: hashedUserPassword,
-    });
+    registeredUsers.push({ username, password: hashedUserPassword, });
 
     res.status(201).send('User registered successfully');
   } catch (error) {
@@ -39,10 +45,11 @@ app.post('/register', async (req, res) => {
 
 app.post('/login', async (req, res) => {
   try {
-    const { username, password } = req.body;
-    if (!username || !password) {
-      return res.status(400).send('Username and password are required for login');
+    if(!checkRequiredFields(req, res, ['username', 'password'], 'Username and password are required for login')) {
+      return;
     }
+
+    const { username, password } = req.body;
     const userToLogin = registeredUsers.find(user => user.username === username);
     if (!userToLogin) {
       return res.status(400).send('User does not exist');
@@ -53,8 +60,7 @@ app.post('/login', async (req, res) => {
       return res.status(401).send('Invalid password');
     }
 
-    const authToken = jwt.sign({ username: userToLogin.username }, jwtSecretKey, { expiresIn: '2h' });
-
+    const authToken = jwt.sign({ username }, jwtSecretKey, { expiresIn: '2h' });
     res.status(200).send({ authToken });
   } catch (error) {
     res.status(500).send('Login failed');
@@ -71,16 +77,13 @@ const authenticateToken = (req, res, next) => {
   try {
     const decodedUser = jwt.verify(token, jwtSecretKey);
     req.user = decodedUser;
+    next();
   } catch (err) {
     return res.status(401).send('Invalid Token');
   }
-  return next();
 };
 
 app.get('/profile', authenticateToken, (req, res) => {
-  if (!req.user) {
-    return res.status(404).send('User not found');
-  }
   res.status(200).send(`Welcome ${req.user.username}, you are authenticated.`);
 });
 
