@@ -11,6 +11,7 @@ const jwtSecretKey = process.env.JWT_SECRET;
 app.use(bodyParser.json());
 
 let registeredUsers = [];
+let documents = [];
 
 function checkRequiredFields(req, res, fields, message) {
   for (const field of fields) {
@@ -35,7 +36,7 @@ app.post('/register', async (req, res) => {
       return res.status(400).send('User already exists');
     }
 
-    registeredUsers.push({ username, password: hashedUserPassword, });
+    registeredUsers.push({ username, password: hashedUserPassword });
 
     res.status(201).send('User registered successfully');
   } catch (error) {
@@ -85,6 +86,48 @@ const authenticateToken = (req, res, next) => {
 
 app.get('/profile', authenticateToken, (req, res) => {
   res.status(200).send(`Welcome ${req.user.username}, you are authenticated.`);
+});
+
+app.post('/documents', authenticateToken, (req, res) => {
+  const { title, content } = req.body;
+
+  if (!title) {
+    return res.status(400).send('Document title is required');
+  }
+
+  const newDocument = { id: documents.length + 1, title, content, owner: req.user.username };
+  documents.push(newDocument);
+  res.status(201).send('Document created successfully');
+});
+
+app.get('/documents', authenticateToken, (req, res) => {
+  const userDocuments = documents.filter(doc => doc.owner === req.user.username);
+  res.status(200).send(userDocuments);
+});
+
+app.put('/documents/:id', authenticateToken, (req, res) => {
+  const { id } = req.params;
+  const { content } = req.body;
+  const documentIndex = documents.findIndex(doc => doc.id == id && doc.owner === req.user.username);
+
+  if (documentIndex === -1) {
+    return res.status(404).send('Document not found or you are not the owner');
+  }
+
+  documents[documentIndex].content = content;
+  res.status(200).send('Document updated successfully');
+});
+
+app.delete('/documents/:id', authenticateToken, (req, res) => {
+  const { id } = req.params;
+  const documentIndex = documents.findIndex(doc => doc.id == id && doc.owner === req.user.username);
+
+  if (documentIndex === -1) {
+    return res.status(404).send('Document not found or you are not the owner');
+  }
+
+  documents.splice(documentIndex, 1);
+  res.status(204).send();
 });
 
 app.use((err, req, res, next) => {
