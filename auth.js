@@ -10,8 +10,8 @@ const jwtSecretKey = process.env.JWT_SECRET;
 
 app.use(bodyParser.json());
 
-let registeredUsers = [];
-let documents = [];
+const registeredUsers = new Map(); // Modified to use Map for efficiency
+let documents = new Map(); // Modified to use Map for document management
 
 function checkRequiredFields(req, res, fields, message) {
   for (const field of fields) {
@@ -25,19 +25,19 @@ function checkRequiredFields(req, res, fields, message) {
 
 app.post('/register', async (req, res) => {
   try {
-    if(!checkRequiredFields(req, res, ['username', 'password'], 'Username and password are required')) {
+    if (!checkRequiredFields(req, res, ['username', 'password'], 'Username and password are required')) {
       return;
     }
     
     const { username, password } = req.body;
-    const hashedUserPassword = await bcrypt.hash(password, 8);
-
-    if (registeredUsers.some(user => user.username === username)) {
+    
+    if (registeredUsers.has(username)) {
       return res.status(400).send('User already exists');
     }
 
-    registeredUsers.push({ username, password: hashedUserPassword });
-
+    const hashedUserPassword = await bcrypt.hash(password, 8);
+    registeredUsers.set(username, hashedUserPassword);
+    
     res.status(201).send('User registered successfully');
   } catch (error) {
     res.status(500).send('Failed to register user');
@@ -46,17 +46,17 @@ app.post('/register', async (req, res) => {
 
 app.post('/login', async (req, res) => {
   try {
-    if(!checkRequiredFields(req, res, ['username', 'password'], 'Username and password are required for login')) {
+    if (!checkRequiredFields(req, res, ['username', 'password'], 'Username and password are required for login')) {
       return;
     }
 
     const { username, password } = req.body;
-    const userToLogin = registeredUsers.find(user => user.username === username);
-    if (!userToLogin) {
+    if (!registeredUsers.has(username)) {
       return res.status(400).send('User does not exist');
     }
 
-    const isValidPassword = await bcrypt.compare(password, userToLogin.password);
+    const userPassword = registeredUsers.get(username);
+    const isValidPassword = await bcrypt.compare(password, userPassword);
     if (!isValidPassword) {
       return res.status(401).send('Invalid password');
     }
@@ -69,12 +69,12 @@ app.post('/login', async (req, res) => {
 });
 
 const authenticateToken = (req, res, next) => {
-  const token = req.header('Authorization')?.split(' ')[1];
-
-  if (!token) {
+  const tokenHeader = req.header('Authorization');
+  if (!tokenHeader) {
     return res.status(403).send('A token is required for authentication');
   }
 
+  const token = tokenHeader.split(' ')[1];
   try {
     const decodedUser = jwt.verify(token, jwtSecretKey);
     req.user = decodedUser;
@@ -95,38 +95,41 @@ app.post('/documents', authenticateToken, (req, res) => {
     return res.status(400).send('Document title is required');
   }
 
-  const newDocument = { id: documents.length + 1, title, content, owner: req.user.username };
-  documents.push(newDocument);
+  const documentId = documents.size + 1;
+  documents.set(documentId, { title, content, owner: req.user.username });
   res.status(201).send('Document created successfully');
 });
 
 app.get('/documents', authenticateToken, (req, res) => {
-  const userDocuments = documents.filter(doc => doc.owner === req.user.username);
+  const userDocuments = [...documents.values()].filter(doc => doc.owner === req.user.username);
   res.status(200).send(userDocuments);
 });
 
 app.put('/documents/:id', authenticateToken, (req, res) => {
-  const { id } = req.params;
-  const { content } = req.body;
-  const documentIndex = documents.findIndex(doc => doc.id == id && doc.owner === req.user.username);
-
-  if (documentIndex === -1) {
+  const documentId = Number(req.params.id);
+  
+  if (!documents.has(documentId)) {
     return res.status(404).send('Document not found or you are not the owner');
   }
 
-  documents[documentIndex].content = content;
+  const documentToUpdate = documents.get(documentId);
+  if (documentToUpdate.owner !== req.user.username) {
+    return res.status(403).send('Not allowed to edit this document');
+  }
+
+  documentToUpdate.content = req.body.content;
   res.status(200).send('Document updated successfully');
 });
 
 app.delete('/documents/:id', authenticateToken, (req, res) => {
-  const { id } = req.params;
-  const documentIndex = documents.findIndex(doc => doc.id == id && doc.owner === req.user.username);
+  const documentId = Number(req.params.id);
+  const documentToDelete = documents.get(documentId);
 
-  if (documentIndex === -1) {
+  if (!documentToDelete || documentToDelete.owner !== req.user.username) {
     return res.status(404).send('Document not found or you are not the owner');
   }
 
-  documents.splice(documentIndex, 1);
+  documents.delete(documentId);
   res.status(204).send();
 });
 
